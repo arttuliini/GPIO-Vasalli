@@ -6,7 +6,7 @@ configure_settings.py
 
 Interaktiivinen työkalu GPIO-ohjauksen asetusten (pinnit, rajahinnat, N) 
 luomiseen ja muokkaamiseen. Tallentaa asetukset settings.json-tiedostoon
-skriptin omaan ajohakemistoon.
+skriptin omaan ajohakemistoon. Käyttää kokonaislukuja hintarajoille (ct/kWh).
 """
 
 import json
@@ -14,57 +14,52 @@ import os
 import sys
 
 # --- Konfiguraatio ja Polut ---
-
-# Hakemisto, jossa tämä skriptitiedosto sijaitsee
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__)) 
-
-# Asetustiedoston polku SUHTEESSA skriptin sijaintiin
 SETTINGS_FILE = os.path.join(SCRIPT_DIR, 'settings.json') 
 
 # --- Funktiot ---
 
 def load_settings():
-    """Lataa asetukset JSON-tiedostosta (käyttää globaalia SETTINGS_FILE polkua)."""
-    # Käytetään nyt globaalisti määriteltyä SETTINGS_FILE polkua
+    """Lataa asetukset JSON-tiedostosta dictionaryyn {pin_numero: asetukset}."""
     settings_path = os.path.abspath(SETTINGS_FILE) 
-    if not os.path.exists(settings_path):
-        print(f"Asetustiedostoa '{settings_path}' ei löytynyt. Luodaan uusi.")
-        return {} 
+    if not os.path.exists(settings_path): print(f"Asetustiedostoa '{settings_path}' ei löytynyt."); return {} 
     print(f"Ladataan asetukset tiedostosta: {settings_path}")
-    # ...(Loput funktiosta pysyy samana kuin edellisessä versiossa)...
+    # ...(Latauslogiikka sama kuin hourly_control.py:ssä, varmistaa kokonaisluvut)...
     try:
         with open(settings_path, 'r', encoding='utf-8') as f:
             settings_list = json.load(f)
-            if not isinstance(settings_list, list):
-                 print(f"VAROITUS: Asetustiedosto '{settings_path}' ei sisältänyt listaa. Aloitetaan tyhjästä.")
-                 return {}
+            if not isinstance(settings_list, list): print(f"VAROITUS: Tiedosto '{settings_path}' ei sisältänyt listaa."); return {}
             settings_dict = {}
             valid_pins_found = 0
             for i, item in enumerate(settings_list):
                 if isinstance(item, dict) and 'gpio_pin' in item:
                     pin_num = item['gpio_pin']
                     try:
-                        pin_num_int = int(pin_num)
-                        if pin_num_int <= 0: raise ValueError("Pinninumeron tulee olla positiivinen")
-                        n_val = item.get('cheapest_hours_n', 0)
-                        if not (0 <= int(n_val) <= 12):
-                            print(f"VAROITUS: Pinnin {pin_num_int} 'cheapest_hours_n' ({n_val}) tiedostossa ei ole välillä 0-12. Korjaa asetukset.")
-                            item['cheapest_hours_n'] = 0 
+                        pin_num_int = int(pin_num); assert pin_num_int > 0
+                        upper_limit = int(item['upper_limit_ct_kwh']); assert upper_limit >= 0
+                        lower_limit = int(item['lower_limit_ct_kwh']); assert lower_limit >= 0
+                        n_value = int(item['cheapest_hours_n']); assert 0 <= n_value <= 12
+                        assert lower_limit <= upper_limit
+                        
+                        item['gpio_pin'] = pin_num_int
+                        item['upper_limit_ct_kwh'] = upper_limit
+                        item['lower_limit_ct_kwh'] = lower_limit
+                        item['cheapest_hours_n'] = n_value
+
                         if 'identifier' not in item or not item['identifier']: item['identifier'] = f"Pin_{pin_num_int}"
                         settings_dict[pin_num_int] = item
                         valid_pins_found += 1
-                    except (ValueError, TypeError) as e: print(f"VAROITUS: Ohitetaan virheellinen asetusrivi {i+1}: {item}, Virhe: {e}")
-                else: print(f"VAROITUS: Ohitetaan virheellinen tai puutteellinen asetusrivi {i+1}: {item}")
+                    except (ValueError, TypeError, KeyError, AssertionError) as e: print(f"VAROITUS: Ohitetaan virheellinen asetusrivi {i+1}: {item}, Virhe: {e}")
+                else: print(f"VAROITUS: Ohitetaan virheellinen asetusrivi {i+1}: {item}")
             if valid_pins_found > 0: print(f"Ladattu {valid_pins_found} pinnin asetukset.")
-            else: print("Asetustiedosto oli tyhjä tai ei sisältänyt kelvollisia asetuksia.")
+            else: print("Asetustiedosto tyhjä/ei kelvollisia asetuksia.")
             return settings_dict
-    except json.JSONDecodeError: print(f"VIRHE: Asetustiedosto '{settings_path}' on virheellisessä muodossa."); return None 
-    except IOError as e: print(f"VIRHE: Asetustiedoston '{settings_path}' lukeminen epäonnistui: {e}", file=sys.stderr); return None
-    except Exception as e: print(f"VIRHE: Odottamaton virhe ladattaessa asetuksia: {e}"); return None
+    except json.JSONDecodeError: print(f"VIRHE: Asetustiedosto '{settings_path}' virheellinen."); return None 
+    except IOError as e: print(f"VIRHE: Asetustiedoston luku epäonnistui: {e}"); return None
+    except Exception as e: print(f"VIRHE: Odottamaton virhe: {e}"); return None
 
 def save_settings(settings_dict):
-    """Tallentaa asetukset JSON-tiedostoon (käyttää globaalia SETTINGS_FILE polkua)."""
-    # Käytetään nyt globaalisti määriteltyä SETTINGS_FILE polkua
+    """Tallentaa asetukset JSON-tiedostoon."""
     settings_path = os.path.abspath(SETTINGS_FILE) 
     settings_list = list(settings_dict.values())
     try:
@@ -72,11 +67,11 @@ def save_settings(settings_dict):
             json.dump(settings_list, f, indent=4, ensure_ascii=False, sort_keys=True) 
         print(f"\nAsetukset tallennettu tiedostoon '{settings_path}'.")
         return True
-    except IOError as e: print(f"VIRHE: Tallentaminen tiedostoon '{settings_path}' epäonnistui: {e}"); return False
-    except Exception as e: print(f"VIRHE: Odottamaton virhe tallennettaessa asetuksia: {e}"); return False
+    except Exception as e: print(f"VIRHE: Tallennus epäonnistui: {e}"); return False
 
-# get_validated_input, display_settings, edit_or_add_pin, delete_pin pysyvät samoina
 def get_validated_input(prompt, default=None, value_type=str, condition=None, error_msg="Virheellinen syöte.", allow_empty=False):
+    """Kysyy käyttäjältä syötettä, validoi sen ja käyttää oletusarvoa tarvittaessa."""
+    # ...(sisältö sama kuin edellisessä versiossa)...
     while True:
         prompt_full = f"{prompt}"
         valid_default = None
@@ -104,7 +99,10 @@ def get_validated_input(prompt, default=None, value_type=str, condition=None, er
             print(f"Virheellinen syöte. Anna arvo tyyppiä {expected_type}.")
         except Exception as e: print(f"Odottamaton virhe syötteen käsittelyssä: {e}")
 
+
 def display_settings(settings_dict):
+    """Tulostaa nykyiset asetukset siististi."""
+    # ...(sisältö sama)...
     print("\n--- Nykyiset Asetukset ---")
     if not settings_dict: print("Ei määriteltyjä pinnejä."); return
     sorted_pins = sorted(settings_dict.keys())
@@ -112,22 +110,54 @@ def display_settings(settings_dict):
         setting = settings_dict[pin_num]
         print(f" Pin {pin_num}:\n  Tunniste: {setting.get('identifier', 'N/A')}\n  Yläraja: {setting.get('upper_limit_ct_kwh', 'N/A')} ct/kWh\n  Alaraja: {setting.get('lower_limit_ct_kwh', 'N/A')} ct/kWh\n  N (halvimmat): {setting.get('cheapest_hours_n', 'N/A')} (0-12)\n" + "-" * 20)
 
+# ===== MUUTETUT FUNKTIOT: edit_or_add_pin & delete_pin =====
 def edit_or_add_pin(settings_dict):
+    """Käsittelee pinnin lisäämisen tai muokkaamisen KOKONAISLUKURAJOILLA."""
     print("\n--- Muokkaa tai lisää pinni ---")
-    gpio_pin = get_validated_input("Anna muokattavan/lisättävän GPIO-pinnin numero (BCM, > 0)", value_type=int, condition=lambda x: x > 0, error_msg="Anna positiivinen kokonaisluku.")
+    gpio_pin = get_validated_input( "Anna muokattavan/lisättävän GPIO-pinnin numero (BCM, > 0)",
+        value_type=int, condition=lambda x: x > 0, error_msg="Anna positiivinen kokonaisluku.")
     existing_setting = settings_dict.get(gpio_pin)
     is_editing = existing_setting is not None
     if is_editing: print(f"Muokataan pinnin {gpio_pin} asetuksia.")
     else: print(f"Lisätään uusi pinni {gpio_pin}."); existing_setting = {} 
-    identifier = get_validated_input(f"Anna tunniste pinniä {gpio_pin} varten", default=existing_setting.get('identifier'), value_type=str, allow_empty=False)
-    upper_limit = get_validated_input(f"Anna hinnan yläraja (senttiä/kWh)", default=existing_setting.get('upper_limit_ct_kwh'), value_type=float, condition=lambda x: x >= 0, error_msg="Rajahinnan tulee olla >= 0.")
-    lower_limit = get_validated_input(f"Anna hinnan alaraja (senttiä/kWh)", default=existing_setting.get('lower_limit_ct_kwh'), value_type=float, condition=lambda x: x >= 0 and x <= upper_limit, error_msg=f"Alarajan tulee olla >= 0 ja <= {upper_limit}.")
-    print(f"\nHalvimpien tuntien ohjaus (N) aktivoituu, kun hinta on välillä ({lower_limit} - {upper_limit}] ct/kWh.\nHUOM: API tukee N arvoja vain välillä 1-12. N=0 ei käytä tätä toimintoa.")
-    cheapest_hours_n = get_validated_input(f"Anna N (halvimpien tuntien määrä)", default=existing_setting.get('cheapest_hours_n', 0), value_type=int, condition=lambda x: 0 <= x <= 12, error_msg="Anna luku väliltä 0-12 (API-rajoitus)." )
-    settings_dict[gpio_pin] = { "gpio_pin": gpio_pin, "identifier": identifier, "upper_limit_ct_kwh": upper_limit, "lower_limit_ct_kwh": lower_limit, "cheapest_hours_n": cheapest_hours_n }
+    
+    identifier = get_validated_input( f"Anna tunniste pinniä {gpio_pin} varten",
+        default=existing_setting.get('identifier'), value_type=str, allow_empty=False)
+    
+    # --- MUUTOS: Kysytään kokonaislukuina ---
+    upper_limit_int = get_validated_input(
+        f"Anna hinnan yläraja (kokonaisluku, senttiä/kWh)",
+        default=existing_setting.get('upper_limit_ct_kwh'), # Oletus voi olla vielä vanha float, int() hoitaa
+        value_type=int,
+        condition=lambda x: x >= 0, 
+        error_msg="Rajahinnan tulee olla 0 tai positiivinen kokonaisluku."
+    )
+
+    lower_limit_int = get_validated_input(
+        f"Anna hinnan alaraja (kokonaisluku, senttiä/kWh)",
+        default=existing_setting.get('lower_limit_ct_kwh'), 
+        value_type=int,
+        condition=lambda x: x >= 0 and x <= upper_limit_int, # Vertailu kokonaislukuihin
+        error_msg=f"Alarajan tulee olla >= 0 ja <= {upper_limit_int}."
+    )
+    # --- MUUTOS LOPPUU ---
+
+    print(f"\nHalvimpien tuntien ohjaus (N) aktivoituu, kun hinta on välillä ({lower_limit_int} - {upper_limit_int}] ct/kWh.")
+    print("HUOM: API tukee N arvoja vain välillä 1-12. N=0 ei käytä tätä toimintoa.")
+    cheapest_hours_n = get_validated_input( f"Anna N (halvimpien tuntien määrä)",
+        default=existing_setting.get('cheapest_hours_n', 0), value_type=int,
+        condition=lambda x: 0 <= x <= 12, error_msg="Anna luku väliltä 0-12 (API-rajoitus)." )
+    
+    settings_dict[gpio_pin] = { "gpio_pin": gpio_pin, "identifier": identifier,
+        # Tallennetaan kokonaislukuina
+        "upper_limit_ct_kwh": upper_limit_int, 
+        "lower_limit_ct_kwh": lower_limit_int,
+        "cheapest_hours_n": cheapest_hours_n }
     print(f"Pinnin {gpio_pin} ({identifier}) tiedot päivitetty muistiin.")
 
 def delete_pin(settings_dict):
+    """Käsittelee pinnin poistamisen."""
+    # ...(sisältö sama)...
     print("\n--- Poista pinnin asetus ---")
     if not settings_dict: print("Ei määriteltyjä pinnejä poistettavaksi."); return
     display_settings(settings_dict) 
@@ -146,8 +176,7 @@ def main():
     settings = load_settings() 
     if settings is None: sys.exit(1) 
     while True:
-        print("\n--- Päävalikko ---")
-        print("1. Muokkaa tai lisää pinnin asetuksia\n2. Poista pinnin asetus\n3. Näytä nykyiset asetukset\n0. Tallenna muutokset ja lopeta")
+        print("\n--- Päävalikko ---\n1. Muokkaa tai lisää\n2. Poista\n3. Näytä\n0. Tallenna & Lopeta")
         choice = get_validated_input("Valitse toiminto (0-3)", value_type=int, condition=lambda x: 0 <= x <= 3, error_msg="Virheellinen valinta.")
         if choice == 1: edit_or_add_pin(settings)
         elif choice == 2: delete_pin(settings)
@@ -156,7 +185,7 @@ def main():
             # Käytetään globaalia SETTINGS_FILE polkua
             if save_settings(settings): print("Muutokset tallennettu. Lopetetaan.")
             else:
-                confirm_exit = get_validated_input("Tallennus epäonnistui. Haluatko silti lopettaa tallentamatta? (k/e)", default='e', value_type=str, condition=lambda x: x.lower() in ['k','e'])
+                confirm_exit = get_validated_input("Tallennus epäonnistui. Lopeta tallentamatta? (k/e)", default='e', value_type=str, condition=lambda x: x.lower() in ['k','e'] )
                 if confirm_exit.lower() == 'k': print("Lopetetaan tallentamatta.")
                 else: print("Palataan valikkoon."); continue 
             break 
