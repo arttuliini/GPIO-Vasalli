@@ -1,0 +1,8 @@
+# Estä paikallisten asetusten seuraaminen
+settings.json
+settings.json.local 
+
+# Voit lisätä tähän muitakin tiedostoja/hakemistoja, joita et halua Gitiin,
+# esim. Pythonin välimuistihakemistot:
+__pycache__/
+*.pyc

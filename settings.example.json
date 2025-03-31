@@ -1,0 +1,16 @@
+[
+    {
+        "gpio_pin": 16, 
+        "identifier": "Laite_A",
+        "upper_limit_ct_kwh": 10,  
+        "lower_limit_ct_kwh": 1,  
+        "cheapest_hours_n": 4 
+    },
+    {
+        "gpio_pin": 20,
+        "identifier": "Laite_B",
+        "upper_limit_ct_kwh": 5,
+        "lower_limit_ct_kwh": 0,
+        "cheapest_hours_n": 6
+    }
+]
