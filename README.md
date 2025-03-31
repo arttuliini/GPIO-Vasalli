@@ -66,12 +66,18 @@ Projekti sisältää seuraavat osat:
     ```
     Tai kopioi skriptit manuaalisesti tähän hakemistoon.
 
-4.  **Asetusten Määritys:** Aja asetustyökalu ensimmäisen kerran määrittääksesi ohjattavat pinnit ja säännöt:
-    ```bash
-    python configure_settings.py
-    # Tai python3 configure_settings.py
-    ```
-    Noudata ohjelman ohjeita. Tämä luo `settings.json`-tiedoston tähän samaan hakemistoon (varmista että vanhat desimaaliarvot päivittyvät kokonaisluvuiksi).
+4.  **Asetusten Määritys:** Tämä projekti käyttää paikallista `settings.json`-tiedostoa, jota **ei tallenneta Git-versionhallintaan** (`.gitignore` estää tämän).
+    * **Kopioi ensin mallitiedosto:** Luo oma asetustiedostosi kopioimalla projektin mukana tuleva esimerkki:
+      ```bash
+      # Varmista, että olet projektin pääkansiossa (esim. ~/Ohjaus)
+      cp settings.example.json settings.json
+      ```
+    * **Muokkaa asetuksia:** Aja asetustyökalu muokataksesi juuri luotua `settings.json`-tiedostoa omilla pinninumeroillasi ja ohjaussäännöilläsi (alaraja, yläraja, N jne.):
+      ```bash
+      python configure_settings.py
+      # Tai python3 configure_settings.py
+      ```
+    Noudata ohjelman valikoita ja ohjeita. Tallenna muutokset valinnalla `0`.
 
 5.  **GPIO Oikeudet:** Varmista, että käyttäjällä, joka ajaa `hourly_control.py`-skriptiä, on oikeus käyttää GPIO-pinnejä:
     ```bash
@@ -132,6 +138,8 @@ Projekti sisältää seuraavat osat:
 * **Toiminta:** Lukee `~/gpio_pricer_data/gpio_current_status.json` -tiedoston ja tulostaa sen sisällön selkeänä taulukkona.
 
 ## Konfiguraatio (`settings.json`)
+
+Tiedosto `settings.json` sisältää käyttäjäkohtaiset ohjausasetukset. Sitä **ei tallenneta Git-versionhallintaan**, vaan käyttäjän tulee luoda se kopioimalla `settings.example.json` ja muokata sitä `configure_settings.py`-työkalulla (ks. Asennus-osio). Tiedosto on lista JSON-objekteja, joista jokainen kuvaa yhden pinnin asetukset:
 
 `configure_settings.py` luo ja muokkaa tätä tiedostoa. Se on lista JSON-objekteja. **HUOM:** Raja-arvot (`*_limit_ct_kwh`) ovat nyt **kokonaislukuja!**
 
