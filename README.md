@@ -115,6 +115,7 @@ Projekti sisältää seuraavat osat:
 ### `simulate_schedule.py`
 
 * **Tarkoitus:** Simuloi ohjausta halutulle päivälle.
+* **TÄRKEÄ HUOMIO (V1):** Tämä simulaattori käyttää eri datalähdettä (`sahkotin.fi`) ja paikallista logiikkaa verrattuna `hourly_control.py` (v1.x) -skriptiin, joka käyttää `api.spot-hinta.fi`-palvelun tarkistuksia. Simuloinnin tulos **ei siis välttämättä täysin vastaa** `hourly_control.py`:n todellista toimintaa tässä versiossa, mutta se antaa hyvän suunnan ja toimii työkaluna asetusten vaikutusten arviointiin. Tämä ero korjataan suunnitellussa V2-arkkitehtuurissa (ks. [SUUNNITELMA_V2.md](SUUNNITELMA_V2.md)).
 * **Ajo:** Manuaalisesti komentoriviltä skriptihakemistossa:
     * `python simulate_schedule.py` tai `--today`
     * `python simulate_schedule.py --tomorrow`

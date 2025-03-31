@@ -9,6 +9,14 @@ käyttäen Sahkotin /prices API:n tulevia hintatietoja (ct/kWh) ja paikallisia a
 Tulostaa simuloidun ON/OFF-aikataulun taulukkona tiedostoon DATA_DIR-hakemistoon.
 Asetukset (kokonaisluvut ct/kWh) luetaan skriptin omasta hakemistosta.
 Hyväksyy komentoriviparametrit --today, --tomorrow, --date VVVV-KK-PP.
+
+# HUOM (V1 Arkkitehtuuri): Tämä skripti käyttää Sahkotin /prices APIa ja
+# suorittaa kaiken päätöksentekologiikan paikallisesti. Se eroaa 
+# hourly_control.py (v1.x) -skriptistä, joka käyttää api.spot-hinta.fi 
+# -palvelun tarkistusrajapintoja. Tämän vuoksi simulaation tulos ei välttämättä
+# täysin vastaa hourly_control.py:n reaaliaikaista toimintaa tässä versiossa.
+# Suunniteltu V2-arkkitehtuuri yhtenäistää tämän.
+
 """
 
 import requests
