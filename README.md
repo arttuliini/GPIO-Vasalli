@@ -187,4 +187,3 @@ Projekti sisältää seuraavat osat:
 * Arttu Kotilainen
 
 ---
-
